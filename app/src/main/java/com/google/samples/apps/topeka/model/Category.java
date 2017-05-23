@@ -16,6 +16,9 @@
 
 package com.google.samples.apps.topeka.model;
 
+import android.arch.persistence.room.Entity;
+import android.arch.persistence.room.Ignore;
+import android.arch.persistence.room.PrimaryKey;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.support.annotation.NonNull;
@@ -28,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+@Entity(tableName = "category")
 public class Category implements Parcelable {
 
     public static final String TAG = "Category";
@@ -45,12 +49,28 @@ public class Category implements Parcelable {
     private static final int SCORE = 8;
     private static final int NO_SCORE = 0;
     private final String mName;
+
+    @PrimaryKey
     private final String mId;
+
     private final Theme mTheme;
     private final int[] mScores;
+
+    @Ignore
     private List<Quiz> mQuizzes;
+
     private boolean mSolved;
 
+    public Category(@NonNull String name, @NonNull String id, @NonNull Theme theme, boolean solved, int[] scores) {
+        mName = name;
+        mId = id;
+        mTheme = theme;
+        mScores = scores;
+        mSolved = solved;
+    }
+
+
+    @Ignore
     public Category(@NonNull String name, @NonNull String id, @NonNull Theme theme,
                     @NonNull List<Quiz> quizzes, boolean solved) {
         mName = name;
@@ -61,6 +81,7 @@ public class Category implements Parcelable {
         mSolved = solved;
     }
 
+    @Ignore
     public Category(@NonNull String name, @NonNull String id, @NonNull Theme theme,
                     @NonNull List<Quiz> quizzes, @NonNull int[] scores, boolean solved) {
         mName = name;
@@ -75,6 +96,7 @@ public class Category implements Parcelable {
         mSolved = solved;
     }
 
+    @Ignore
     protected Category(Parcel in) {
         mName = in.readString();
         mId = in.readString();
