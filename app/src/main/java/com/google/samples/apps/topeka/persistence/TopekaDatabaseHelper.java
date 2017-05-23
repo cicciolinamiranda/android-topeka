@@ -16,12 +16,14 @@
 
 package com.google.samples.apps.topeka.persistence;
 
+import android.arch.persistence.room.Room;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.res.Resources;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.os.AsyncTask;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -40,6 +42,7 @@ import com.google.samples.apps.topeka.model.quiz.Quiz;
 import com.google.samples.apps.topeka.model.quiz.SelectItemQuiz;
 import com.google.samples.apps.topeka.model.quiz.ToggleTranslateQuiz;
 import com.google.samples.apps.topeka.model.quiz.TrueFalseQuiz;
+import com.google.samples.apps.topeka.room.TopekaRoom;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -65,6 +68,7 @@ public class TopekaDatabaseHelper extends SQLiteOpenHelper {
     private static List<Category> mCategories;
     private static TopekaDatabaseHelper mInstance;
     private final Resources mResources;
+    private static TopekaRoom mTopekaRoom;
 
     private TopekaDatabaseHelper(Context context) {
         //prevents external instance creation
@@ -229,6 +233,79 @@ public class TopekaDatabaseHelper extends SQLiteOpenHelper {
         writableDatabase.delete(CategoryTable.NAME, null, null);
         writableDatabase.delete(QuizTable.NAME, null, null);
         getInstance(context).preFillDatabase(writableDatabase);
+
+        PopulateDbAsync task = new PopulateDbAsync(TopekaRoom.getARoom(context));
+        task.execute(context);
+    }
+
+    private static class PopulateDbAsync extends AsyncTask<Context, Void, Void> {
+
+        private final TopekaRoom mDb;
+
+        PopulateDbAsync(TopekaRoom db) {
+            mDb = db;
+        }
+
+        @Override
+        protected Void doInBackground(Context... context) {
+            mDb.categoryDao().deleteAll();
+            fillUpRoom(mDb, context[0]);
+            return null;
+        }
+
+        private void fillUpRoom(TopekaRoom room, Context context) {
+            try {
+                room.beginTransaction();
+                try {
+                    fillCategoriesAndQuizzes(room, context);
+                    room.setTransactionSuccessful();
+                } finally {
+                    room.endTransaction();
+                }
+            } catch (IOException | JSONException e) {
+                Log.e(TAG, "preFillDatabase", e);
+            }
+        }
+
+        private void fillCategoriesAndQuizzes(TopekaRoom room, Context context) throws JSONException, IOException {
+            JSONArray jsonArray = new JSONArray(readCategoriesFromResources(context));
+            JSONObject category;
+            for (int i = 0; i < jsonArray.length(); i++) {
+                category = jsonArray.getJSONObject(i);
+                final String categoryId = category.getString(JsonAttributes.ID);
+
+                //fillCategory(db, values, category, categoryId);
+                final Category category1 = new Category(category.getString(JsonAttributes.NAME),
+                        categoryId,
+                        Theme.valueOf(category.getString(JsonAttributes.THEME)),
+                        category.getBoolean(JsonAttributes.SOLVED),
+                        getScoresArray(category.getJSONArray(JsonAttributes.SCORES)));
+                room.categoryDao().insertCategory(category1);
+            }
+        }
+
+        private String readCategoriesFromResources(Context context) throws IOException {
+            StringBuilder categoriesJson = new StringBuilder();
+            InputStream rawCategories = context.getResources().openRawResource(R.raw.categories);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(rawCategories));
+            String line;
+
+            while ((line = reader.readLine()) != null) {
+                categoriesJson.append(line);
+            }
+            return categoriesJson.toString();
+        }
+
+        private int[] getScoresArray(JSONArray jsonArray) {
+            int[] numbers = new int[jsonArray.length()];
+            // Extract numbers from JSON array.
+            for (int i = 0; i < jsonArray.length(); ++i) {
+                numbers[i] = jsonArray.optInt(i);
+            }
+
+            return numbers;
+        }
+
     }
 
     /**

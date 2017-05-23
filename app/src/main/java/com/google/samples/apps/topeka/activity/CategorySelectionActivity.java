@@ -131,7 +131,11 @@ public class CategorySelectionActivity extends AppCompatActivity {
     @SuppressLint("NewApi")
     private void signOut() {
         PreferencesHelper.signOut(this);
+
+        // This will make Room throw a RuntimeException:
+        // java.lang.IllegalStateException: Cannot access database on the main thread since it may potentially lock the UI for a long periods of time.
         TopekaDatabaseHelper.reset(this);
+
         if (ApiLevelHelper.isAtLeast(Build.VERSION_CODES.LOLLIPOP)) {
             getWindow().setExitTransition(TransitionInflater.from(this)
                     .inflateTransition(R.transition.category_enter));
